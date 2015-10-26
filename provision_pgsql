@@ -14,27 +14,22 @@ PROVISIONING_SQL_PATH="/var/lib/go-agent/pipelines/Baseline-build/apps/ejabberd/
 PROVISIONING_SQL_FILENAME="pg.sql"
 PROVISIONING_SQL_FULLFILENAME=${PROVISIONING_SQL_PATH}/${PROVISIONING_SQL_FILENAME}
 
-# Schema and tables' owner. 
-if [ $# == 2 ] 
+# First 3 parameters: db role to be created, db role password, db to be created
+if [ $# -ge 3 ]
 then
     ROLE_NAME=$1
     ROLE_DB_PASSWORD=$2
+    DATABASE_NAME=$3
     echo "db role name: "  "$1"
     echo "db pass: " "$2"
+    echo "db name: " "$3"
 else
     ROLE_NAME='usermongooseim'
-    ROLE_DB_PASSWORD='passmongooseim'
+    ROLE_DB_PASSWORD='password'
+    DATABASE_NAME='mongooseim'
 fi
 
-# ROLE_NAME='usermongooseim'
-# ROLE_DB_PASSWORD='passmongooseim'
-
-DATABASE_NAME='mongooseimdb'
-
-
 echo "Provisioning SQL fullname is:" ${PROVISIONING_SQL_FULLFILENAME}
-
-# exit 0
 
 # reinitialize database container. 
 
