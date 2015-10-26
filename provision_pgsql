@@ -1,10 +1,9 @@
 #!/bin/bash
 
-
-# Docker image description
+# Docker image description. top.
 DOCKERFILE_HOME="~/dockertest"
 DOCKERFILE="docker_pgsql"
-INSTANCE_NAME="mongooseim_postgre"
+INSTANCE_NAME="mongooseim_postgre_bubu"
 IMAGE_NAME="mongooseim_postgre_backend"
 
 # SSH alias for target docker host machine
@@ -16,10 +15,26 @@ PROVISIONING_SQL_FILENAME="pg.sql"
 PROVISIONING_SQL_FULLFILENAME=${PROVISIONING_SQL_PATH}/${PROVISIONING_SQL_FILENAME}
 
 # Schema and tables' owner. 
-ROLE_NAME="ejabberd"
-ROLE_DB_PASSWORD='ejabberd'
+if [ $# == 2 ] 
+then
+    ROLE_NAME=$1
+    ROLE_DB_PASSWORD=$2
+    echo "db role name: "  "$1"
+    echo "db pass: " "$2"
+else
+    ROLE_NAME='usermongooseim'
+    ROLE_DB_PASSWORD='passmongooseim'
+fi
+
+# ROLE_NAME='usermongooseim'
+# ROLE_DB_PASSWORD='passmongooseim'
+
+DATABASE_NAME='mongooseimdb'
+
 
 echo "Provisioning SQL fullname is:" ${PROVISIONING_SQL_FULLFILENAME}
+
+# exit 0
 
 # reinitialize database container. 
 
@@ -45,7 +60,7 @@ ssh ${SSH_DOCKERMACHINE_ALIAS} psql '-h localhost -U postgres < ~/createrole_sql
 sleep 1;
 
 echo "checking if role has been added"
-ssh ${SSH_DOCKERMACHINE_ALIAS} psql '-h localhost -U postgres -c "\du"' | grep -q ejabberd
+ssh ${SSH_DOCKERMACHINE_ALIAS} psql '-h localhost -U postgres -c "\du"' | grep -q ${ROLE_NAME}
 if [ $? -eq 1 ] 
 then
     echo "error creating role"
@@ -54,13 +69,14 @@ else
 fi
 
 echo "adding database"
-ssh ${SSH_DOCKERMACHINE_ALIAS} 'psql -h localhost -U postgres -c "CREATE DATABASE ejabberd"'
+ssh ${SSH_DOCKERMACHINE_ALIAS} 'psql -h localhost -U postgres -c "CREATE DATABASE '${DATABASE_NAME}'"'
+# ssh ${SSH_DOCKERMACHINE_ALIAS} 'psql -e -h localhost -U ${ROLE_NAME} -c "CREATE DATABASE '${DATABASE_NAME}'"'
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'if [ -f ~/createrole_sql ]; then rm ~/createrole_sql; fi'
 
 echo "uploading sql for schema creation"
 rsync -avz -e ssh "${PROVISIONING_SQL_FULLFILENAME}" ${SSH_DOCKERMACHINE_ALIAS}:/home/go
 echo "initializing database with new schema..."
-ssh ${SSH_DOCKERMACHINE_ALIAS} 'psql -h localhost -U '${ROLE_NAME}' -q -d ejabberd -f ~/'${PROVISIONING_SQL_FILENAME}''
+ssh ${SSH_DOCKERMACHINE_ALIAS} 'psql -h localhost -U '${ROLE_NAME}' -q -d '${DATABASE_NAME}' -f ~/'${PROVISIONING_SQL_FILENAME}''
 
 # clean temporary files locally
 if [ -f ~/createrole_sql ]
@@ -71,4 +87,4 @@ fi
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'rm -f ~/'${PROVISIONING_SQL_FILENAME}''
 
 echo " --- listing created tables --- "
-ssh docker_pgsql psql '-h localhost -U ejabberd -c "\dt"'
+ssh docker_pgsql psql '-h localhost -U '${ROLE_NAME}' -d '${DATABASE_NAME}' -c "\dt"'
