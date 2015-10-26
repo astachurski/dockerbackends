@@ -9,10 +9,6 @@ IMAGE_NAME="mongooseim_postgre_backend"
 # SSH alias for target docker host machine
 SSH_DOCKERMACHINE_ALIAS="docker_pgsql"
 
-# Database provisioning script. Used once Role added and schema created.
-PROVISIONING_SQL_PATH="/var/lib/go-agent/pipelines/Baseline-build/apps/ejabberd/priv"
-PROVISIONING_SQL_FILENAME="pg.sql"
-PROVISIONING_SQL_FULLFILENAME=${PROVISIONING_SQL_PATH}/${PROVISIONING_SQL_FILENAME}
 
 # First 3 parameters: db role to be created, db role password, db to be created
 if [ $# -ge 3 ]
@@ -29,22 +25,33 @@ else
     DATABASE_NAME='mongooseim'
 fi
 
+if [ $# -ge 4 ]
+then
+    echo "db prov sql: " "$4"
+    PROVISIONING_SQL_FULLFILENAME=$4
+    PROVISIONING_SQL_FILENAME="${PROVISIONING_SQL_FULLFILENAME##*/}"
+    PROVISIONING_SQL_PATH=`dirname "${PROVISIONING_SQL_FULLFILENAME}"`
+else
+    PROVISIONING_SQL_FILENAME="pg.sql"
+    PROVISIONING_SQL_PATH="/var/lib/go-agent/pipelines/Baseline-build/apps/ejabberd/priv"
+fi
+
+PROVISIONING_SQL_FULLFILENAME=${PROVISIONING_SQL_PATH}/${PROVISIONING_SQL_FILENAME}
+
 echo "Provisioning SQL fullname is:" ${PROVISIONING_SQL_FULLFILENAME}
 
-# reinitialize database container. 
-
-echo "stopping docker container";
+echo "stopping docker container...";
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker stop '${INSTANCE_NAME}''
-echo "removing docker container";
+echo "removing docker container...";
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker rm '${INSTANCE_NAME}''
-echo "creating new container from dockerfile";
+echo "creating new container from dockerfile...";
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker build -t '${IMAGE_NAME}' -f '${DOCKERFILE_HOME}'/'${DOCKERFILE}' .'
-echo "starting the container with postgre"
+echo "starting the container with postgresql..."
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker run --name '${INSTANCE_NAME}' -p 5432:5432 -d '${IMAGE_NAME}''
 
-sleep 10
+sleep 8
 
-# provision database with role, schema and tables
+# PSQL SPECIFIC PART - provision database with role, schema and tables
 
 echo "configuring postgresql..."
 echo "CREATE ROLE ${ROLE_NAME} PASSWORD '${ROLE_DB_PASSWORD}' SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN" > ~/createrole_sql;
@@ -83,3 +90,5 @@ ssh ${SSH_DOCKERMACHINE_ALIAS} 'rm -f ~/'${PROVISIONING_SQL_FILENAME}''
 
 echo " --- listing created tables --- "
 ssh docker_pgsql psql '-h localhost -U '${ROLE_NAME}' -d '${DATABASE_NAME}' -c "\dt"'
+
+# PSQL SPECIFIC PART END - provision database with role, schema and tables
