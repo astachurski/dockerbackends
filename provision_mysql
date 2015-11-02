@@ -47,23 +47,25 @@ ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker rm '${INSTANCE_NAME}''
 echo "creating new container from dockerfile...";
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker build -t '${IMAGE_NAME}' -f '${DOCKERFILE_HOME}'/'${DOCKERFILE}' .'
 echo "starting the container with mysql..."
-ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker run --name '${INSTANCE_NAME}' -p 3306:3306 -d '${IMAGE_NAME}''
 
-sleep 10
+ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker run --name '${INSTANCE_NAME}' -p 3306:3306 -d '${IMAGE_NAME}''
 
 # MYSQL SPECIFIC PART - provision database with role, schema and tables
 
 echo "uploading sql for schema creation"
 rsync -avz -e ssh "${PROVISIONING_SQL_FULLFILENAME}" ${SSH_DOCKERMACHINE_ALIAS}:/home/go
 echo "initializing database with new schema..."
-#ssh ${SSH_DOCKERMACHINE_ALIAS} 'mysql --host=127.0.0.1 -u '${ROLE_NAME}' --password='${ROLE_DB_PASSWORD}' '${DATABASE_NAME}' < ~/'${PROVISIONING_SQL_FILENAME}''
-ssh ${SSH_DOCKERMACHINE_ALIAS} "mysql --host=127.0.0.1 -u ${ROLE_NAME} --password=${ROLE_DB_PASSWORD} ${DATABASE_NAME}  < ~/${PROVISIONING_SQL_FILENAME}"
 
+while :
+do
+   ssh ${SSH_DOCKERMACHINE_ALIAS} "mysql --host=127.0.0.1 -u ${ROLE_NAME} --password=${ROLE_DB_PASSWORD} ${DATABASE_NAME}  < ~/${PROVISIONING_SQL_FILENAME}"
+   if [ $? -eq 0 ]; then echo "provisioning database success"; break; fi
+done
 
 # clean temporary files remotely
-# ssh ${SSH_DOCKERMACHINE_ALIAS} 'rm -f ~/'${PROVISIONING_SQL_FILENAME}''
+ssh ${SSH_DOCKERMACHINE_ALIAS} 'rm -f ~/'${PROVISIONING_SQL_FILENAME}''
 
 echo " --- listing created tables --- "
-ssh docker_mysql 'mysqlshow --host=127.0.0.1 -u '${ROLE_NAME}' '${DATABASE_NAME}' --password='${ROLE_DB_PASSWORD}''
+ssh ${SSH_DOCKERMACHINE_ALIAS} 'mysqlshow --host=127.0.0.1 -u '${ROLE_NAME}' '${DATABASE_NAME}' --password='${ROLE_DB_PASSWORD}''
 
 # MYSQL SPECIFIC PART END - provision database with role, schema and tables
