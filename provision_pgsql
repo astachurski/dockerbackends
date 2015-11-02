@@ -49,7 +49,6 @@ ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker build -t '${IMAGE_NAME}' -f '${DOCKERFILE
 echo "starting the container with postgresql..."
 ssh ${SSH_DOCKERMACHINE_ALIAS} 'docker run --name '${INSTANCE_NAME}' -p 5432:5432 -d '${IMAGE_NAME}''
 
-sleep 8
 
 # PSQL SPECIFIC PART - provision database with role, schema and tables
 
@@ -57,9 +56,11 @@ echo "configuring postgresql..."
 echo "CREATE ROLE ${ROLE_NAME} PASSWORD '${ROLE_DB_PASSWORD}' SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN" > ~/createrole_sql;
 rsync -avz -e ssh ~/createrole_sql ${SSH_DOCKERMACHINE_ALIAS}:/home/go;
 echo "adding role - executing sql remotely";
-ssh ${SSH_DOCKERMACHINE_ALIAS} psql '-h localhost -U postgres < ~/createrole_sql';
-
-sleep 1;
+while :
+do
+    ssh ${SSH_DOCKERMACHINE_ALIAS} psql '-h localhost -U postgres < ~/createrole_sql'
+    if [ $? -eq 0]; then echo "provisioning database success"; break; fi
+done
 
 echo "checking if role has been added"
 ssh ${SSH_DOCKERMACHINE_ALIAS} psql '-h localhost -U postgres -c "\du"' | grep -q ${ROLE_NAME}
