@@ -59,7 +59,7 @@ echo "adding role - executing sql remotely";
 while :
 do
     ssh ${SSH_DOCKERMACHINE_ALIAS} psql '-h localhost -U postgres < ~/createrole_sql'
-    if [ $? -eq 0]; then echo "provisioning database success"; break; fi
+    if [ $? -eq 0 ]; then echo "provisioning database success"; break; fi
 done
 
 echo "checking if role has been added"
